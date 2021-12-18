@@ -51,60 +51,50 @@ class Snumber {
     }
 
     explode() {
-        // First find explodes - pairs that are four levels deep
-        let exploding = null;
-        function seek(node, depth) {
-            if (exploding !== null) {
+        function findNextTo(node, direction) {
+            const opposite = direction === 'left' ? 'right' : 'left';
+            if (node.parent === null) {
                 return;
             }
+
+            function takeValueFrom(next) {
+                return next.hasChildren() ? takeValueFrom(next[opposite]) : next;
+            }
+
+            return (node.parent[direction] !== node)
+                ? takeValueFrom(node.parent[direction])
+                : findNextTo(node.parent, direction);
+        }
+
+        let exploding = false;
+        function seek(node, depth) {
+            if (exploding) {
+                return;
+            }
+
             if (depth === 4 && node.hasChildren()) {
-                exploding = { node, addToLeft: node.left.value, addToRight: node.right.value };
-                const left = node.left.value;
-                const right = node.right.value;
+                const right = findNextTo(node, 'right')
+                const left = findNextTo(node, 'left')
+                if (right) {
+                    right.value += node.right.value;
+                }
+                if (left) {
+                    left.value += node.left.value;
+                }
+
+                node.value = 0;
+                node.left = null;
+                node.right = null;
+                exploding = true;
             }
 
             if (node.hasChildren()) {
-                const left = seek(node.left, depth + 1);
-                const right = seek(node.right, depth + 1);
+                seek(node.left, depth + 1);
+                seek(node.right, depth + 1);
             }
         }
 
-        const result = seek(this, 0);
-
-        function findNextTo(node, direction) {
-            const opposite = direction === 'left' ? 'right' : 'left';
-            const parent = node.parent;
-            if (parent === null) {
-                return;
-            }
-
-            if (parent[direction] !== node) {
-                function takeValueFrom(node, dir) {
-                    if (node.hasChildren()) {
-                        return takeValueFrom(node[dir], dir);
-                    } else {
-                        return node;
-                    }
-                }
-                return takeValueFrom(parent[direction], opposite);
-            } else {
-                return findNextTo(parent, direction);
-            }
-        }
-
-        if (exploding) {
-            exploding.node.value = 0;
-            exploding.node.left = null;
-            exploding.node.right = null;
-            const right = findNextTo(exploding.node, 'right')
-            const left = findNextTo(exploding.node, 'left')
-            if (right) {
-                right.value += exploding.addToRight;
-            }
-            if (left) {
-                left.value += exploding.addToLeft;
-            }
-        }
+        seek(this, 0);
 
         return { hasExploded: !!exploding, node: this };
     }
